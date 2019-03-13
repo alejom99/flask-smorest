@@ -11,7 +11,6 @@ Two pagination modes are supported:
 
 from collections import OrderedDict
 from functools import wraps
-import json
 
 from flask import request, current_app
 
@@ -107,6 +106,24 @@ class Page:
         return ("{}(collection={!r},page_params={!r})"
                 .format(self.__class__.__name__,
                         self.collection, self.page_params))
+
+
+class PaginationHeaderSchema(ma.Schema):
+    """Pagination header schema
+
+    Used to serialize pagination header.
+    Its main purpose is to document the pagination header.
+    """
+    total = ma.fields.Int()
+    total_pages = ma.fields.Int()
+    first_page = ma.fields.Int()
+    last_page = ma.fields.Int()
+    page = ma.fields.Int()
+    previous_page = ma.fields.Int()
+    next_page = ma.fields.Int()
+
+    class Meta:
+        ordered = True
 
 
 class PaginationMixin:
@@ -224,4 +241,4 @@ class PaginationMixin:
                     page_header['previous_page'] = page - 1
                 if page < last_page:
                     page_header['next_page'] = page + 1
-        return json.dumps(page_header)
+        return PaginationHeaderSchema().dumps(page_header)
