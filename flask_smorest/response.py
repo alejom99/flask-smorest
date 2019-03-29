@@ -70,6 +70,14 @@ class ResponseMixin:
 
         def decorator(func):
 
+            # Document pagination header if needed
+            if getattr(func, '_paginated', False) is True:
+                doc['responses'][code]['headers'] = {
+                    self.PAGINATION_HEADER_FIELD_NAME: (
+                        self.PAGINATION_HEADER_DOC
+                    )
+                }
+
             @wraps(func)
             def wrapper(*args, **kwargs):
 
