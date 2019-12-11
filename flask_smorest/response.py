@@ -77,6 +77,8 @@ class ResponseMixin:
                         self.PAGINATION_HEADER_DOC
                     )
                 }
+            # Document default error response
+            doc['responses']['default'] = 'DefaultError'
 
             @wraps(func)
             def wrapper(*args, **kwargs):
