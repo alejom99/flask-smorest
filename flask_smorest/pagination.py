@@ -11,6 +11,7 @@ Two pagination modes are supported:
 
 from collections import OrderedDict
 from functools import wraps
+from copy import deepcopy
 
 from flask import request, current_app
 
@@ -178,10 +179,6 @@ class PaginationMixin:
         }
 
         def decorator(func):
-            # Add pagination params to doc info in function object
-            func._apidoc = getattr(func, '_apidoc', {})
-            func._apidoc.setdefault('parameters', []).append(parameters)
-            func._paginated = True
 
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -216,6 +213,12 @@ class PaginationMixin:
                             self.PAGINATION_HEADER_FIELD_NAME] = page_header
 
                 return result, status, headers
+
+            # Add pagination params to doc info in wrapped function object
+            # The deepcopy avoids modifying the wrapped function doc
+            wrapper._apidoc = deepcopy(getattr(wrapper, '_apidoc', {}))
+            wrapper._apidoc.setdefault('parameters', []).append(parameters)
+            wrapper._paginated = True
 
             return wrapper
 
