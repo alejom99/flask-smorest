@@ -36,7 +36,7 @@ Documentation process works in several steps:
   - Endpoints documentation is registered in the APISpec object.
 """
 
-from collections import OrderedDict
+from collections import abc, OrderedDict
 from functools import wraps
 from copy import deepcopy
 
@@ -210,66 +210,71 @@ class Blueprint(
         versions: the OpenAPI version is not known when the decorators are
         applied but only at registration time when this method is called.
         """
+        parameters = [
+            p for p in operation.get('parameters', [])
+            if isinstance(p, abc.Mapping)
+        ]
+        responses = {
+            c: r for c, r in operation.get('responses', {}).items()
+            if isinstance(r, abc.Mapping)
+        }
+
         # OAS 2
         if openapi_version.major < 3:
-            if 'responses' in operation:
-                for resp in operation['responses'].values():
-                    if 'example' in resp:
-                        resp['examples'] = {
-                            DEFAULT_RESPONSE_CONTENT_TYPE: resp.pop('example')}
-            if 'parameters' in operation:
-                for param in operation['parameters']:
-                    if param['in'] in (
-                            self.DEFAULT_LOCATION_CONTENT_TYPE_MAPPING
-                    ):
-                        content_type = (
-                            param.pop('content_type', None) or
-                            self.DEFAULT_LOCATION_CONTENT_TYPE_MAPPING[
-                                param['in']]
-                        )
-                        if content_type != DEFAULT_REQUEST_BODY_CONTENT_TYPE:
-                            operation['consumes'] = [content_type, ]
-                        # body and formData are mutually exclusive
-                        break
+            for resp in responses.values():
+                if 'example' in resp:
+                    resp['examples'] = {
+                        DEFAULT_RESPONSE_CONTENT_TYPE: resp.pop('example')}
+            for param in parameters:
+                if param['in'] in (
+                        self.DEFAULT_LOCATION_CONTENT_TYPE_MAPPING
+                ):
+                    content_type = (
+                        param.pop('content_type', None) or
+                        self.DEFAULT_LOCATION_CONTENT_TYPE_MAPPING[
+                            param['in']]
+                    )
+                    if content_type != DEFAULT_REQUEST_BODY_CONTENT_TYPE:
+                        operation['consumes'] = [content_type, ]
+                    # body and formData are mutually exclusive
+                    break
         # OAS 3
         else:
-            if 'responses' in operation:
-                for resp in operation['responses'].values():
-                    for field in ('schema', 'example', 'examples'):
-                        if field in resp:
-                            (
-                                resp
-                                .setdefault('content', {})
-                                .setdefault(DEFAULT_RESPONSE_CONTENT_TYPE, {})
-                                [field]
-                            ) = resp.pop(field)
-            if 'parameters' in operation:
-                for param in operation['parameters']:
-                    if param['in'] in (
-                            self.DEFAULT_LOCATION_CONTENT_TYPE_MAPPING
-                    ):
-                        request_body = {
-                            x: param[x]
-                            for x in ('description', 'required')
-                            if x in param
-                        }
-                        fields = {
-                            x: param.pop(x)
-                            for x in ('schema', 'example', 'examples')
-                            if x in param
-                        }
-                        content_type = (
-                            param.pop('content_type', None) or
-                            self.DEFAULT_LOCATION_CONTENT_TYPE_MAPPING[
-                                param['in']]
-                        )
-                        request_body['content'] = {content_type: fields}
-                        operation['requestBody'] = request_body
-                        # There can be only one requestBody
-                        operation['parameters'].remove(param)
-                        if not operation['parameters']:
-                            del operation['parameters']
-                        break
+            for resp in responses.values():
+                for field in ('schema', 'example', 'examples'):
+                    if field in resp:
+                        (
+                            resp
+                            .setdefault('content', {})
+                            .setdefault(DEFAULT_RESPONSE_CONTENT_TYPE, {})
+                            [field]
+                        ) = resp.pop(field)
+            for param in parameters:
+                if param['in'] in (
+                        self.DEFAULT_LOCATION_CONTENT_TYPE_MAPPING
+                ):
+                    request_body = {
+                        x: param[x]
+                        for x in ('description', 'required')
+                        if x in param
+                    }
+                    fields = {
+                        x: param.pop(x)
+                        for x in ('schema', 'example', 'examples')
+                        if x in param
+                    }
+                    content_type = (
+                        param.pop('content_type', None) or
+                        self.DEFAULT_LOCATION_CONTENT_TYPE_MAPPING[
+                            param['in']]
+                    )
+                    request_body['content'] = {content_type: fields}
+                    operation['requestBody'] = request_body
+                    # There can be only one requestBody
+                    operation['parameters'].remove(param)
+                    if not operation['parameters']:
+                        del operation['parameters']
+                    break
 
     @staticmethod
     def doc(**kwargs):
